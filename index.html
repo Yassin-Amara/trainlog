@@ -878,6 +878,22 @@
   <div class="section-title">Letzte Einheiten</div>
   <div id="historyList"></div>
 
+  <div class="section-title" style="margin-top:24px;">Export</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Exportiere deine Daten als CSV – ideal für Excel oder Numbers zur monatlichen Analyse.</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <select id="exportMonth" class="judo-input" style="margin-bottom:0;flex:1;">
+      </select>
+      <select id="exportYear" class="judo-input" style="margin-bottom:0;width:90px;">
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="save-btn" onclick="exportCSV('training')" style="flex:1;padding:12px;">💪 Training</button>
+      <button class="save-btn" onclick="exportCSV('lauf')" style="flex:1;padding:12px;background:var(--orange);color:#000;">🏃 Läufe</button>
+      <button class="save-btn" onclick="exportCSV('judo')" style="flex:1;padding:12px;background:var(--blue);color:#fff;">🥋 Judo</button>
+    </div>
+  </div>
+
   <div class="bottom-spacer"></div>
 </div>
 
@@ -1014,12 +1030,52 @@ function buildExerciseList() {
   list.innerHTML = '';
 
   if (plan.type === 'judo') {
+    const saved = workoutData[key] ? workoutData[key].__judo__ : null;
+    const s = saved || {};
     list.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;">
-        <div style="font-size:60px;margin-bottom:12px;">🥋</div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--blue);letter-spacing:2px;">JUDO TAG</div>
-        <p style="color:var(--muted);font-size:14px;margin-top:8px;">Viel Spaß beim Training!</p>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--blue);margin-bottom:16px;">🥋 JUDO TRAINING</div>
+
+      <!-- RANDORI SECTION -->
+      <div class="exercise-card" style="border-color:rgba(77,159,255,0.3);">
+        <div class="exercise-header" onclick="this.parentElement.classList.toggle('open')">
+          <div><div class="exercise-name">Randori</div><div class="exercise-meta" id="randoriMeta">${s.randori ? renderRandoriMeta(s.randori) : 'Noch kein Eintrag'}</div></div>
+          <div class="chevron">⌄</div>
+        </div>
+        <div class="exercise-body" style="padding:16px;">
+          <div id="randoriList"></div>
+          <button class="add-set-btn" onclick="addRandori()">+ Randori hinzufügen</button>
+          <button class="save-btn" style="margin-top:10px;" onclick="saveJudo()">Speichern</button>
+        </div>
+      </div>
+
+      <!-- APPLE WATCH -->
+      <div class="exercise-card" style="margin-top:4px;">
+        <div class="exercise-header" onclick="this.parentElement.classList.toggle('open')">
+          <div><div class="exercise-name">⌚ Apple Watch Daten</div><div class="exercise-meta" id="watchMetaJudo">${s.watch ? s.watch.duration+'min · '+s.watch.kcal+'kcal · '+s.watch.hr+'bpm' : 'Noch kein Eintrag'}</div></div>
+          <div class="chevron">⌄</div>
+        </div>
+        <div class="exercise-body" style="padding:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+              <div class="judo-input-label">Dauer (min)</div>
+              <input class="set-input" type="number" id="w-duration" placeholder="60" value="${s.watch ? s.watch.duration : ''}" inputmode="numeric">
+            </div>
+            <div>
+              <div class="judo-input-label">Kcal</div>
+              <input class="set-input" type="number" id="w-kcal" placeholder="400" value="${s.watch ? s.watch.kcal : ''}" inputmode="numeric">
+            </div>
+            <div>
+              <div class="judo-input-label">Ø HF (bpm)</div>
+              <input class="set-input" type="number" id="w-hr" placeholder="145" value="${s.watch ? s.watch.hr : ''}" inputmode="numeric">
+            </div>
+          </div>
+          <button class="save-btn" onclick="saveJudo()">Speichern</button>
+        </div>
       </div>`;
+
+    // build randori list
+    const randoriData = s.randori || [];
+    buildRandoriList(randoriData);
     return;
   }
 
@@ -1035,12 +1091,56 @@ function buildExerciseList() {
 
   if (!workoutData[key]) workoutData[key] = {};
 
+  // Apple Watch card for fitness/run days
+  const savedWatch = workoutData[key].__watch__ || {};
+  const watchCard = document.createElement('div');
+  watchCard.className = 'exercise-card';
+  watchCard.innerHTML = `
+    <div class="exercise-header" onclick="this.parentElement.classList.toggle('open')">
+      <div>
+        <div class="exercise-name">⌚ Apple Watch Daten</div>
+        <div class="exercise-meta" id="watchMeta">${savedWatch.duration ? savedWatch.duration+'min · '+savedWatch.kcal+'kcal · '+savedWatch.hr+'bpm' : 'Noch kein Eintrag'}</div>
+      </div>
+      <div class="chevron">⌄</div>
+    </div>
+    <div class="exercise-body" style="padding:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div>
+          <div class="judo-input-label">Dauer (min)</div>
+          <input class="set-input" type="number" id="w-duration" placeholder="60" value="${savedWatch.duration || ''}" inputmode="numeric">
+        </div>
+        <div>
+          <div class="judo-input-label">Kcal</div>
+          <input class="set-input" type="number" id="w-kcal" placeholder="400" value="${savedWatch.kcal || ''}" inputmode="numeric">
+        </div>
+        <div>
+          <div class="judo-input-label">Ø HF (bpm)</div>
+          <input class="set-input" type="number" id="w-hr" placeholder="145" value="${savedWatch.hr || ''}" inputmode="numeric">
+        </div>
+      </div>
+      <button class="save-btn" onclick="saveWatchData()">Speichern</button>
+    </div>`;
+  list.appendChild(watchCard);
+
   plan.exercises.forEach((ex, idx) => {
     const exData = workoutData[key][ex] || [];
     const hasData = exData.length > 0;
     const metaText = hasData
       ? exData.map((s,i) => `S${i+1}: ${s.kg}kg × ${s.reps}`).join('  ·  ')
       : 'Noch kein Eintrag';
+
+    const phase = getPhase();
+    const baseRec = EXERCISE_RECS[ex];
+    const rec = getRecForPhase(baseRec, phase);
+    const recHtml = rec && rec.sets > 0 ? `
+      <div style="background:rgba(200,241,53,0.07);border:1px solid rgba(200,241,53,0.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">${rec.label} · Empfehlung</div>
+        <div style="font-size:14px;font-weight:600;color:var(--accent);">${rec.sets} Sätze × ${rec.reps} Wdh.</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;">💡 ${rec.note}</div>
+      </div>` : rec && rec.sets === 0 ? `
+      <div style="background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.3);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:600;color:var(--red);">🔴 ${rec.note}</div>
+      </div>` : '';
 
     const card = document.createElement('div');
     card.className = 'exercise-card' + (hasData ? ' has-data' : '');
@@ -1055,6 +1155,7 @@ function buildExerciseList() {
         <div class="chevron">⌄</div>
       </div>
       <div class="exercise-body" id="body-${idx}">
+        ${recHtml}
         <div class="sets-header">
           <div>Satz</div><div>KG</div><div>Wdh.</div><div></div>
         </div>
@@ -1067,18 +1168,47 @@ function buildExerciseList() {
 
     // populate sets
     const setsDiv = document.getElementById(`sets-${idx}`);
+    const bw = isBodyweight(ex);
+    const unit = getUnit(ex);
+
+    // update sets header label
+    const hdrCols = card.querySelectorAll('.sets-header div');
+    if (hdrCols.length >= 3) {
+      hdrCols[1].textContent = bw ? (unit === 'sek' ? 'Sek.' : 'Wdh.') : 'KG';
+      hdrCols[2].textContent = bw ? '' : 'Wdh.';
+    }
+
     if (exData.length === 0) {
-      addSetRow(setsDiv, idx, 0, '', '');
+      addSetRow(setsDiv, idx, 0, '', '', ex);
     } else {
-      exData.forEach((s, si) => addSetRow(setsDiv, idx, si, s.kg, s.reps));
+      exData.forEach((s, si) => addSetRow(setsDiv, idx, si, s.kg, s.reps, ex));
     }
   });
 }
 
-function addSetRow(container, exIdx, setNum, kg='', reps='') {
+function isBodyweight(exName) {
+  const rec = EXERCISE_RECS[exName];
+  return rec && rec.bw === true;
+}
+
+function getUnit(exName) {
+  const rec = EXERCISE_RECS[exName];
+  return rec && rec.unit ? rec.unit : 'wdh';
+}
+
+function addSetRow(container, exIdx, setNum, kg='', reps='', exName='') {
+  const bw = isBodyweight(exName);
+  const unit = getUnit(exName);
   const row = document.createElement('div');
   row.className = 'set-row';
-  row.innerHTML = `
+  row.innerHTML = bw ? `
+    <div class="set-num">${setNum + 1}</div>
+    <div style="display:flex;align-items:center;gap:6px;grid-column:2/4;">
+      <input class="set-input" type="number" placeholder="${unit === 'sek' ? '30' : '10'}" value="${reps}" inputmode="numeric" style="flex:1;">
+      <span style="font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;">${unit === 'sek' ? 'Sek.' : 'Wdh.'}</span>
+    </div>
+    <button class="del-btn" onclick="this.closest('.set-row').remove();renumberSets(${exIdx})">✕</button>
+  ` : `
     <div class="set-num">${setNum + 1}</div>
     <input class="set-input" type="number" placeholder="kg" value="${kg}" inputmode="decimal">
     <input class="set-input" type="number" placeholder="10" value="${reps}" inputmode="numeric">
@@ -1096,17 +1226,23 @@ function renumberSets(exIdx) {
 function addSet(exIdx, exName) {
   const setsDiv = document.getElementById(`sets-${exIdx}`);
   const count = setsDiv.querySelectorAll('.set-row').length;
-  addSetRow(setsDiv, exIdx, count, '', '');
+  addSetRow(setsDiv, exIdx, count, '', '', exName);
 }
 
 function saveExercise(exIdx, exName) {
   const key = dateKey(selectedDate);
   const rows = document.querySelectorAll(`#sets-${exIdx} .set-row`);
   const sets = [];
+  const bw = isBodyweight(exName);
+  const unit = getUnit(exName);
   rows.forEach(r => {
     const inputs = r.querySelectorAll('.set-input');
-    if (inputs[0].value || inputs[1].value) {
-      sets.push({ kg: inputs[0].value || '–', reps: inputs[1].value || '–' });
+    if (bw) {
+      if (inputs[0].value) sets.push({ kg: '–', reps: inputs[0].value + (unit === 'sek' ? 's' : '') });
+    } else {
+      if (inputs[0].value || inputs[1].value) {
+        sets.push({ kg: inputs[0].value || '–', reps: inputs[1].value || '–' });
+      }
     }
   });
   if (!workoutData[key]) workoutData[key] = {};
@@ -1122,7 +1258,152 @@ function toggleCard(idx) {
   card.classList.toggle('open');
 }
 
-// ── CHECK-IN ─────────────────────────────────────────────────────
+// ── TRAININGSEMPFEHLUNGEN ────────────────────────────────────────
+const EXERCISE_RECS = {
+  'Bankdrücken':              { sets: 4, reps: '8–10', note: 'Schulterblätter zusammenziehen', bw: false },
+  'Schulterdrücken':          { sets: 3, reps: '10',   note: 'Kern anspannen, kein Hohlkreuz', bw: false },
+  'Latzug / Klimmzüge':      { sets: 4, reps: '8',    note: 'Ellenbogen nach unten ziehen', bw: false },
+  'Rudern':                   { sets: 3, reps: '10',   note: 'Brust raus, Rücken gerade', bw: false },
+  'Bizeps Curls':             { sets: 3, reps: '12',   note: 'Langsam absenken', bw: false },
+  'Trizeps Dips':             { sets: 3, reps: '12',   note: 'Körper aufrecht halten', bw: true },
+  'Kniebeugen':               { sets: 4, reps: '8–10', note: 'Knie über Zehen, Rücken gerade', bw: false },
+  'Rumänisches Kreuzheben':   { sets: 3, reps: '10',   note: 'Hüfte nach hinten schieben', bw: false },
+  'Ausfallschritte':          { sets: 3, reps: '12',   note: 'Pro Bein, Knie nicht über Zehen', bw: false },
+  'Beinpresse':               { sets: 3, reps: '10',   note: 'Füße hüftbreit, nicht durchstrecken', bw: false },
+  'Wadenheben':               { sets: 4, reps: '15',   note: 'Oben kurz halten', bw: false },
+  'Plank':                    { sets: 3, reps: '45',   note: 'Hüfte nicht hängen lassen', bw: true, unit: 'sek' },
+  'Kreuzheben':               { sets: 4, reps: '6–8',  note: 'Stange am Körper, Rücken neutral', bw: false },
+  'Klimmzüge / Latzug':      { sets: 3, reps: '8',    note: 'Vollständige Streckung unten', bw: false },
+  'Goblet Squats':            { sets: 3, reps: '12',   note: 'Ellenbogen innen an Knien', bw: false },
+  'Mountainclimbers':         { sets: 3, reps: '30',   note: 'Hüfte tief, schnelles Tempo', bw: true, unit: 'sek' },
+  'Russian Twists':           { sets: 3, reps: '20',   note: 'Füße leicht anheben', bw: true, unit: 'wdh' },
+  'Hollow Body Hold':         { sets: 3, reps: '30',   note: 'Lendenwirbel am Boden halten', bw: true, unit: 'sek' },
+};
+
+function getPhase() {
+  const next = compData.find(c => daysUntil(c.date) >= 0);
+  if (!next) return 'build';
+  const days = daysUntil(next.date);
+  if (days <= 3)  return 'rest';
+  if (days <= 7)  return 'taper';
+  if (days <= 21) return 'peak';
+  return 'build';
+}
+
+function getRecForPhase(baseRec, phase) {
+  if (!baseRec) return null;
+  switch(phase) {
+    case 'peak':  return { sets: baseRec.sets, reps: '6–8',  label: '🔴 Peaking', note: baseRec.note };
+    case 'taper': return { sets: Math.max(2, baseRec.sets - 1), reps: baseRec.reps, label: '🟠 Tapering', note: baseRec.note };
+    case 'rest':  return { sets: 0, reps: '–', label: '🔴 Kein Training!', note: 'Körper schonen vor dem Kampf' };
+    default:      return { sets: baseRec.sets, reps: baseRec.reps, label: '🟢 Aufbau', note: baseRec.note };
+  }
+}
+
+
+// ── RANDORI & WATCH ──────────────────────────────────────────────
+let randoriItems = [];
+
+function renderRandoriMeta(randori) {
+  const total = randori.length;
+  const won = randori.filter(r => r.won).length;
+  return `${total} Randori · ${won} gewonnen`;
+}
+
+function buildRandoriList(data) {
+  randoriItems = data.map(r => Object.assign({}, r));
+  renderRandoriUI();
+}
+
+function addRandori() {
+  randoriItems.push({ type: 'stand', won: null, opponent: '' });
+  renderRandoriUI();
+}
+
+function removeRandori(i) {
+  randoriItems.splice(i, 1);
+  renderRandoriUI();
+}
+
+function renderRandoriUI() {
+  const div = document.getElementById('randoriList');
+  if (!div) return;
+  div.innerHTML = '';
+  if (randoriItems.length === 0) {
+    div.innerHTML = '<p style="color:var(--muted);font-size:13px;margin-bottom:12px;">Noch kein Randori eingetragen.</p>';
+    return;
+  }
+  randoriItems.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'background:var(--surface2);border-radius:12px;padding:12px;margin-bottom:10px;';
+    row.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--blue);">Randori ${i+1}</div>
+        <button class="del-btn" onclick="removeRandori(${i})">✕</button>
+      </div>
+      <div style="margin-bottom:8px;">
+        <div class="judo-input-label">Art</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="toggle-btn ${r.type==='stand'?'active-yes':''}" onclick="setRandoriType(${i},'stand')">🥋 Stand</button>
+          <button class="toggle-btn ${r.type==='griff'?'active-yes':''}" onclick="setRandoriType(${i},'griff')">🤝 Griff</button>
+          <button class="toggle-btn ${r.type==='boden'?'active-yes':''}" onclick="setRandoriType(${i},'boden')">⬇️ Boden</button>
+        </div>
+      </div>
+      <div style="margin-bottom:8px;">
+        <div class="judo-input-label">Ergebnis</div>
+        <div style="display:flex;gap:6px;">
+          <button class="toggle-btn ${r.won===true?'active-yes':''}" onclick="setRandoriResult(${i},true)">Gewonnen ✓</button>
+          <button class="toggle-btn ${r.won===false?'active-no':''}" onclick="setRandoriResult(${i},false)">Verloren ✗</button>
+        </div>
+      </div>
+      <div>
+        <div class="judo-input-label">Gegen (optional)</div>
+        <input class="set-input" type="text" placeholder="Name des Gegners..." value="${r.opponent||''}"
+          oninput="randoriItems[${i}].opponent=this.value"
+          style="text-align:left;padding-left:12px;">
+      </div>`;
+    div.appendChild(row);
+  });
+}
+
+function setRandoriType(i, type) {
+  randoriItems[i].type = type;
+  renderRandoriUI();
+}
+
+function setRandoriResult(i, won) {
+  randoriItems[i].won = won;
+  renderRandoriUI();
+}
+
+function saveJudo() {
+  const key = dateKey(selectedDate);
+  if (!workoutData[key]) workoutData[key] = {};
+  const dur = document.getElementById('w-duration');
+  const kc = document.getElementById('w-kcal');
+  const hr = document.getElementById('w-hr');
+  workoutData[key].__judo__ = {
+    randori: randoriItems,
+    watch: dur && dur.value ? { duration: dur.value, kcal: kc ? kc.value : '', hr: hr ? hr.value : '' } : null
+  };
+  localStorage.setItem('workoutData', JSON.stringify(workoutData));
+  showToast('Judo gespeichert 🥋');
+  buildExerciseList();
+}
+
+function saveWatchData() {
+  const key = dateKey(selectedDate);
+  if (!workoutData[key]) workoutData[key] = {};
+  const dur = document.getElementById('w-duration');
+  const kc = document.getElementById('w-kcal');
+  const hr = document.getElementById('w-hr');
+  if (!dur || !dur.value) { showToast('Bitte Dauer eingeben!'); return; }
+  workoutData[key].__watch__ = { duration: dur.value, kcal: kc ? kc.value : '', hr: hr ? hr.value : '' };
+  localStorage.setItem('workoutData', JSON.stringify(workoutData));
+  showToast('Watch-Daten gespeichert ⌚');
+  buildExerciseList();
+}
+
 let checkinData = JSON.parse(localStorage.getItem('checkinData') || '{}');
 
 function loadCheckin() {
@@ -1387,6 +1668,85 @@ function updateCompBanner() {
   document.getElementById('compBannerTip').textContent = tip;
 }
 
+// ── EXPORT ───────────────────────────────────────────────────────
+function initExportDropdowns() {
+  const months = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  const mSel = document.getElementById('exportMonth');
+  const ySel = document.getElementById('exportYear');
+  if (!mSel || !ySel) return;
+  const now = new Date();
+  mSel.innerHTML = months.map((m,i) => `<option value="${i+1}" ${i===now.getMonth()?'selected':''}>${m}</option>`).join('');
+  ySel.innerHTML = [now.getFullYear()-1, now.getFullYear()].map(y => `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`).join('');
+}
+
+function downloadCSV(filename, content) {
+  const bom = '\uFEFF'; // UTF-8 BOM for Excel
+  const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportCSV(type) {
+  const month = parseInt(document.getElementById('exportMonth').value);
+  const year = parseInt(document.getElementById('exportYear').value);
+  const monthStr = String(month).padStart(2,'0');
+  const prefix = `${year}-${monthStr}`;
+
+  if (type === 'training') {
+    const rows = [['Datum','Tag','Übung','Satz','KG','Wdh','Dauer (min)','Kcal','Ø HF','Gefühl','Protein Shake']];
+    const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+    Object.keys(workoutData).filter(k => k.startsWith(prefix)).sort().forEach(key => {
+      const d = new Date(key);
+      const dayName = days[d.getDay()];
+      const ci = checkinData[key] || {};
+      const feeling = ci.feeling || '';
+      const shake = ci.shake === true ? 'Ja' : ci.shake === false ? 'Nein' : '';
+      const watch = workoutData[key].__watch__ || {};
+      const exs = Object.entries(workoutData[key]).filter(([k]) => !k.startsWith('__'));
+      if (exs.length === 0) {
+        rows.push([key, dayName, '', '', '', '', watch.duration||'', watch.kcal||'', watch.hr||'', feeling, shake]);
+      } else {
+        exs.forEach(([ex, sets]) => {
+          sets.forEach((s, si) => {
+            rows.push([key, dayName, ex, si+1, s.kg, s.reps, si===0?(watch.duration||''):'', si===0?(watch.kcal||''):'', si===0?(watch.hr||''):'', si===0?feeling:'', si===0?shake:'']);
+          });
+        });
+      }
+    });
+    downloadCSV(`training_${prefix}.csv`, rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n'));
+
+  } else if (type === 'lauf') {
+    const rows = [['Datum','Distanz (km)','Zeit (min)','Pace (min/km)','Notiz']];
+    runData.filter(r => r.date.startsWith(prefix)).forEach(r => {
+      const pace = r.time && r.dist ? (r.time / r.dist).toFixed(1) : '';
+      rows.push([r.date, r.dist, r.time||'', pace, r.note||'']);
+    });
+    downloadCSV(`lauf_${prefix}.csv`, rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n'));
+
+  } else if (type === 'judo') {
+    const rows = [['Datum','Randori Nr.','Art','Ergebnis','Gegner','Watch Dauer','Watch Kcal','Watch HF']];
+    Object.keys(workoutData).filter(k => k.startsWith(prefix)).sort().forEach(key => {
+      const judo = workoutData[key].__judo__;
+      if (!judo) return;
+      const watch = judo.watch || {};
+      if (!judo.randori || judo.randori.length === 0) {
+        rows.push([key,'','','','', watch.duration||'', watch.kcal||'', watch.hr||'']);
+      } else {
+        judo.randori.forEach((r, i) => {
+          const result = r.won === true ? 'Gewonnen' : r.won === false ? 'Verloren' : '';
+          rows.push([key, i+1, r.type||'', result, r.opponent||'', i===0?(watch.duration||''):'', i===0?(watch.kcal||''):'', i===0?(watch.hr||''):'']);
+        });
+      }
+    });
+    downloadCSV(`judo_${prefix}.csv`, rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n'));
+  }
+  showToast('Export gestartet ✓');
+}
+
 // ── NAV ─────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((t,i) => {
@@ -1407,7 +1767,7 @@ function switchNav(tab, el) {
 function switchView(tab) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + tab).classList.add('active');
-  if (tab === 'progress') buildProgressView();
+  if (tab === 'progress') { buildProgressView(); initExportDropdowns(); }
   if (tab === 'run') renderRunHistory(), updateProgress();
   if (tab === 'judo') renderCompList();
 }
