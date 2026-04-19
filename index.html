@@ -882,15 +882,33 @@
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;">
     <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Exportiere deine Daten als CSV – ideal für Excel oder Numbers zur monatlichen Analyse.</div>
     <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <select id="exportMonth" class="judo-input" style="margin-bottom:0;flex:1;">
-      </select>
-      <select id="exportYear" class="judo-input" style="margin-bottom:0;width:90px;">
-      </select>
+      <select id="exportMonth" class="judo-input" style="margin-bottom:0;flex:1;"></select>
+      <select id="exportYear" class="judo-input" style="margin-bottom:0;width:90px;"></select>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="save-btn" onclick="exportCSV('training')" style="flex:1;padding:12px;">💪 Training</button>
       <button class="save-btn" onclick="exportCSV('lauf')" style="flex:1;padding:12px;background:var(--orange);color:#000;">🏃 Läufe</button>
       <button class="save-btn" onclick="exportCSV('judo')" style="flex:1;padding:12px;background:var(--blue);color:#fff;">🥋 Judo</button>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px;">🔄 Backup & Restore</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Sichere alle deine Trainingsdaten oder übertrage sie auf eine neue App-Version.</div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Schritt 1 – Backup erstellen</div>
+      <button class="save-btn" onclick="createBackup()" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);">📋 Alle Daten kopieren</button>
+      <div id="backupOutput" style="display:none;margin-top:10px;">
+        <textarea id="backupText" readonly style="width:100%;height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:11px;padding:10px;font-family:monospace;resize:none;"></textarea>
+        <div style="font-size:12px;color:var(--accent);margin-top:6px;">✓ Kopiere diesen Text und speichere ihn z.B. in Notizen</div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Schritt 2 – Daten wiederherstellen</div>
+      <textarea id="restoreText" placeholder="Backup-Text hier einfügen..." style="width:100%;height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:11px;padding:10px;font-family:monospace;resize:none;margin-bottom:8px;"></textarea>
+      <button class="save-btn" onclick="restoreBackup()" style="background:var(--surface2);color:var(--blue);border:1px solid var(--blue);">📥 Daten importieren</button>
     </div>
   </div>
 
@@ -1666,6 +1684,45 @@ function updateCompBanner() {
   document.getElementById('compBannerLabel').textContent = '🥋 ' + next.name;
   document.getElementById('compBannerDays').textContent = days === 0 ? 'HEUTE!' : days + ' Tage';
   document.getElementById('compBannerTip').textContent = tip;
+}
+
+function createBackup() {
+  const backup = {
+    v: 1,
+    workoutData: JSON.parse(localStorage.getItem('workoutData') || '{}'),
+    runData: JSON.parse(localStorage.getItem('runData') || '[]'),
+    checkinData: JSON.parse(localStorage.getItem('checkinData') || '{}'),
+    compData: JSON.parse(localStorage.getItem('compData') || '[]'),
+    exportedAt: new Date().toISOString()
+  };
+  const json = JSON.stringify(backup);
+  document.getElementById('backupOutput').style.display = 'block';
+  document.getElementById('backupText').value = json;
+  // Try to copy to clipboard
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(json).then(() => showToast('In Zwischenablage kopiert ✓'));
+  } else {
+    document.getElementById('backupText').select();
+    showToast('Text markieren & kopieren');
+  }
+}
+
+function restoreBackup() {
+  const text = document.getElementById('restoreText').value.trim();
+  if (!text) { showToast('Kein Text eingefügt!'); return; }
+  try {
+    const backup = JSON.parse(text);
+    if (!backup.v) throw new Error('Ungültiges Format');
+    if (backup.workoutData) { workoutData = backup.workoutData; localStorage.setItem('workoutData', JSON.stringify(workoutData)); }
+    if (backup.runData) { runData = backup.runData; localStorage.setItem('runData', JSON.stringify(runData)); }
+    if (backup.checkinData) { checkinData = backup.checkinData; localStorage.setItem('checkinData', JSON.stringify(checkinData)); }
+    if (backup.compData) { compData = backup.compData; localStorage.setItem('compData', JSON.stringify(compData)); }
+    showToast('Daten wiederhergestellt ✓');
+    document.getElementById('restoreText').value = '';
+    setTimeout(() => { buildProgressView(); initExportDropdowns(); buildDateStrip(); buildExerciseList(); }, 500);
+  } catch(e) {
+    showToast('Fehler: Ungültiger Backup-Text');
+  }
 }
 
 // ── EXPORT ───────────────────────────────────────────────────────
